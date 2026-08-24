@@ -1025,5 +1025,23 @@ func mapGitLabPullRequestState(state *vcsutils.PullRequestState) *string {
 
 // GetMergeBase on GitLab
 func (client *GitLabClient) GetMergeBase(ctx context.Context, owner, repository, refBefore, refAfter string) (CommitInfo, error) {
-	return CommitInfo{}, ErrMergeBaseUnsupported
+	if err := validateParametersNotBlank(map[string]string{
+		"owner":      owner,
+		"repository": repository,
+		"refBefore":  refBefore,
+		"refAfter":   refAfter,
+	}); err != nil {
+		return CommitInfo{}, err
+	}
+
+	refs := []string{refBefore, refAfter}
+	commit, _, err := client.glClient.Repositories.MergeBase(getProjectID(owner, repository),
+		&gitlab.MergeBaseOptions{Ref: &refs}, gitlab.WithContext(ctx))
+	if err != nil {
+		return CommitInfo{}, err
+	}
+	if commit == nil {
+		return CommitInfo{}, fmt.Errorf("no merge base found for <%s/%s> between %s and %s", owner, repository, refBefore, refAfter)
+	}
+	return mapGitLabCommitToCommitInfo(commit), nil
 }
