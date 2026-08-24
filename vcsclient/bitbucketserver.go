@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -987,7 +988,55 @@ func getSourceRepositoryOwner(pullRequest bitbucketv1.PullRequest) (string, erro
 	return project.Key, nil
 }
 
-// GetMergeBase on Bitbucket Server
-func (client *BitbucketServerClient) GetMergeBase(ctx context.Context, owner, repository, refBefore, refAfter string) (CommitInfo, error) {
-	return CommitInfo{}, ErrMergeBaseUnsupported
+// GetMergeBase on Bitbucket server
+func (client *BitbucketServerClient) GetMergeBase(ctx context.Context, owner, repository, refBefore, refAfter string) (commitInfo CommitInfo, err error) {
+	if err = validateParametersNotBlank(map[string]string{
+		"owner":      owner,
+		"repository": repository,
+		"refBefore":  refBefore,
+		"refAfter":   refAfter,
+	}); err != nil {
+		return
+	}
+
+	// The path segment accepts only a commit id: a slashed branch name resolves to a different route
+	// and its encoded form is rejected before it reaches the application.
+	baseCommit, err := client.GetLatestCommit(ctx, owner, repository, refBefore)
+	if err != nil {
+		return
+	}
+	if baseCommit.Hash == "" {
+		return CommitInfo{}, fmt.Errorf("could not resolve reference '%s' to a commit in <%s/%s>", refBefore, owner, repository)
+	}
+
+	restEndpoint := strings.TrimSuffix(client.vcsInfo.APIEndpoint, "/rest") + "/rest"
+	requestUrl := fmt.Sprintf("%s/api/1.0/projects/%s/repos/%s/commits/%s/merge-base?otherCommitId=%s",
+		restEndpoint, owner, repository, baseCommit.Hash, url.QueryEscape(refAfter))
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestUrl, nil)
+	if err != nil {
+		return
+	}
+	response, err := client.buildHTTPClient(ctx).Do(req)
+	if err != nil {
+		return
+	}
+	defer func() {
+		err = errors.Join(err, response.Body.Close())
+	}()
+
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		return
+	}
+	if response.StatusCode >= 300 {
+		return CommitInfo{}, fmt.Errorf("failed to get the merge base of '%s' and '%s' in <%s/%s>, status: %s, body: %s",
+			refBefore, refAfter, owner, repository, response.Status, body)
+	}
+
+	var mergeBase bitbucketv1.Commit
+	if err = json.Unmarshal(body, &mergeBase); err != nil {
+		return
+	}
+	return client.mapBitbucketServerCommitToCommitInfo(mergeBase, owner, repository), nil
 }
