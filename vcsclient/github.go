@@ -1893,3 +1893,8 @@ func convertToGitHubSnapshot(snapshot *SbomSnapshot) (*github.DependencyGraphSna
 	}
 	return ghSnapshot, nil
 }
+
+// GetMergeBase on GitHub
+func (client *GitHubClient) GetMergeBase(ctx context.Context, owner, repository, refBefore, refAfter string) (CommitInfo, error) {
+	return CommitInfo{}, ErrMergeBaseUnsupported
+}

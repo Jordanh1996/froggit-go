@@ -1707,3 +1707,19 @@ func TestGithubClient_UploadSnapshotToDependencyGraph(t *testing.T) {
 	err = createBadGitHubClient(t).UploadSnapshotToDependencyGraph(ctx, owner, repo1, &snapshot)
 	assert.Error(t, err)
 }
+
+func TestGetMergeBaseUnsupportedProviders(t *testing.T) {
+	ctx := context.Background()
+	for _, provider := range []vcsutils.VcsProvider{
+		vcsutils.GitLab, vcsutils.BitbucketCloud, vcsutils.BitbucketServer, vcsutils.AzureRepos,
+	} {
+		t.Run(provider.String(), func(t *testing.T) {
+			client, err := NewClientBuilder(provider).Build()
+			assert.NoError(t, err)
+
+			_, err = client.GetMergeBase(ctx, owner, repo1, "master", "feature")
+
+			assert.ErrorIs(t, err, ErrMergeBaseUnsupported)
+		})
+	}
+}

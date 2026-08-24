@@ -924,3 +924,8 @@ func mapVoteToState(vote int) string {
 		return "UNKNOWN"
 	}
 }
+
+// GetMergeBase on Azure Repos
+func (client *AzureReposClient) GetMergeBase(ctx context.Context, owner, repository, refBefore, refAfter string) (CommitInfo, error) {
+	return CommitInfo{}, ErrMergeBaseUnsupported
+}

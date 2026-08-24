@@ -986,3 +986,8 @@ func getSourceRepositoryOwner(pullRequest bitbucketv1.PullRequest) (string, erro
 	}
 	return project.Key, nil
 }
+
+// GetMergeBase on Bitbucket Server
+func (client *BitbucketServerClient) GetMergeBase(ctx context.Context, owner, repository, refBefore, refAfter string) (CommitInfo, error) {
+	return CommitInfo{}, ErrMergeBaseUnsupported
+}

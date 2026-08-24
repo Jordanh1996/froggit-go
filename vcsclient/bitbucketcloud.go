@@ -1240,3 +1240,8 @@ func (client *BitbucketCloudClient) downloadRepositoryViaGitClone(ctx context.Co
 	}
 	return vcsutils.CreateDotGitFolderWithRemote(localPath, "origin", repositoryInfo.CloneInfo.HTTP)
 }
+
+// GetMergeBase on Bitbucket Cloud
+func (client *BitbucketCloudClient) GetMergeBase(ctx context.Context, owner, repository, refBefore, refAfter string) (CommitInfo, error) {
+	return CommitInfo{}, ErrMergeBaseUnsupported
+}

@@ -1022,3 +1022,8 @@ func mapGitLabPullRequestState(state *vcsutils.PullRequestState) *string {
 	}
 	return &stateStringValue
 }
+
+// GetMergeBase on GitLab
+func (client *GitLabClient) GetMergeBase(ctx context.Context, owner, repository, refBefore, refAfter string) (CommitInfo, error) {
+	return CommitInfo{}, ErrMergeBaseUnsupported
+}

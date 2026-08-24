@@ -2,12 +2,16 @@ package vcsclient
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/jfrog/froggit-go/vcsutils"
 )
+
+// ErrMergeBaseUnsupported is returned by GetMergeBase for providers whose merge-base API is not yet implemented
+var ErrMergeBaseUnsupported = errors.New("merge base resolution is not yet supported for this provider")
 
 // CommitStatus the status of the commit in the VCS
 type CommitStatus int
@@ -276,6 +280,13 @@ type VcsClient interface {
 	// repository - VCS repository name
 	// branch     - The name of the branch
 	GetLatestCommit(ctx context.Context, owner, repository, branch string) (CommitInfo, error)
+
+	// GetMergeBase returns the best common ancestor of two VCS references
+	// owner      - User or organization
+	// repository - VCS repository name
+	// refBefore  - The first reference (commit SHA, branch name or tag)
+	// refAfter   - The second reference (commit SHA, branch name or tag)
+	GetMergeBase(ctx context.Context, owner, repository, refBefore, refAfter string) (CommitInfo, error)
 
 	// GetCommits Gets the most recent commit of a branch
 	// owner      - User or organization
