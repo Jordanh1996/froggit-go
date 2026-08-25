@@ -11,6 +11,7 @@ import (
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/webapi"
 	"github.com/stretchr/testify/assert"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -1007,4 +1008,51 @@ func createAzureReposMergeBaseHandler(t *testing.T, commitsResponse []byte) crea
 			assert.NoError(t, err)
 		}
 	}
+}
+
+func TestAzureRepos_DownloadRepositoryAtCommit(t *testing.T) {
+	ctx := context.Background()
+	const commitSha = "be8b434506dfe97e27e7d8f35d3320b881ddb5c2"
+	var gotUri string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.RequestURI, "items/items") {
+			gotUri = r.RequestURI
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client, err := NewClientBuilder(vcsutils.AzureRepos).ApiEndpoint(server.URL).Token(token).Project(project).Build()
+	assert.NoError(t, err)
+	dir, err := os.MkdirTemp("", "")
+	assert.NoError(t, err)
+	defer func() { _ = os.RemoveAll(dir) }()
+
+	_ = client.DownloadRepository(ctx, "", repo1, commitSha, dir)
+
+	// Without versionType=commit Azure reads the sha as a branch name and answers 404.
+	assert.Contains(t, gotUri, "versionDescriptor[versionType]=commit")
+	assert.Contains(t, gotUri, "versionDescriptor[version]="+commitSha)
+}
+
+func TestAzureRepos_DownloadRepositoryAtBranchKeepsBranchVersionType(t *testing.T) {
+	ctx := context.Background()
+	var gotUri string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.RequestURI, "items/items") {
+			gotUri = r.RequestURI
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client, err := NewClientBuilder(vcsutils.AzureRepos).ApiEndpoint(server.URL).Token(token).Project(project).Build()
+	assert.NoError(t, err)
+	dir, err := os.MkdirTemp("", "")
+	assert.NoError(t, err)
+	defer func() { _ = os.RemoveAll(dir) }()
+
+	_ = client.DownloadRepository(ctx, "", repo1, "feat/slashed-name", dir)
+
+	assert.NotContains(t, gotUri, "versionType=commit")
 }

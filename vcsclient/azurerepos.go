@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -45,6 +46,8 @@ func NewAzureReposClient(vcsInfo VcsInfo, logger vcsutils.Log) (*AzureReposClien
 	client.connectionDetails = azuredevops.NewPatConnection(baseUrl, client.vcsInfo.Token)
 	return client, nil
 }
+
+var commitShaRegex = regexp.MustCompile("^[0-9a-fA-F]{40}$")
 
 func (client *AzureReposClient) buildAzureReposClient(ctx context.Context) (git.Client, error) {
 	if client.connectionDetails == nil {
@@ -165,6 +168,10 @@ func (client *AzureReposClient) sendDownloadRepoRequest(ctx context.Context, rep
 		client.vcsInfo.Project,
 		repository,
 		url.QueryEscape(branch))
+	// Azure defaults the version type to a branch name, and answers 404 for a commit id unless told otherwise.
+	if commitShaRegex.MatchString(branch) {
+		downloadRepoUrl += "&versionDescriptor[versionType]=commit"
+	}
 	client.logger.Debug("Download url:", downloadRepoUrl)
 	headers := map[string]string{
 		"Authorization":  client.connectionDetails.AuthorizationString,
