@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -46,8 +45,6 @@ func NewAzureReposClient(vcsInfo VcsInfo, logger vcsutils.Log) (*AzureReposClien
 	client.connectionDetails = azuredevops.NewPatConnection(baseUrl, client.vcsInfo.Token)
 	return client, nil
 }
-
-var commitShaRegex = regexp.MustCompile("^[0-9a-fA-F]{40}$")
 
 func (client *AzureReposClient) buildAzureReposClient(ctx context.Context) (git.Client, error) {
 	if client.connectionDetails == nil {
@@ -948,7 +945,6 @@ func (client *AzureReposClient) GetMergeBase(ctx context.Context, _, repository,
 		return CommitInfo{}, err
 	}
 
-	// Azure rejects anything that is not a 40 character object id, on both sides of the comparison.
 	baseSha, err := client.resolveToCommitSha(ctx, repository, refBefore)
 	if err != nil {
 		return CommitInfo{}, err
@@ -977,10 +973,8 @@ func (client *AzureReposClient) GetMergeBase(ctx context.Context, _, repository,
 	return mapAzureReposCommitsToCommitInfo((*mergeBases)[0]), nil
 }
 
+// Azure resolves merge bases only by object id, so a branch name has to be turned into one first.
 func (client *AzureReposClient) resolveToCommitSha(ctx context.Context, repository, ref string) (string, error) {
-	if commitShaRegex.MatchString(ref) {
-		return ref, nil
-	}
 	commit, err := client.GetLatestCommit(ctx, "", repository, ref)
 	if err != nil {
 		return "", err
