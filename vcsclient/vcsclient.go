@@ -608,6 +608,13 @@ func mergeBaseNotFoundError(owner, repository, refBefore, refAfter string) error
 	return fmt.Errorf("no merge base found for <%s/%s> between %s and %s", owner, repository, refBefore, refAfter)
 }
 
+func validateNotBlank(name, value string) error {
+	if strings.TrimSpace(value) == "" {
+		return fmt.Errorf("validation failed: required parameter '%s' is missing", name)
+	}
+	return nil
+}
+
 func validateParametersNotBlank(paramNameValueMap map[string]string) error {
 	var errorMessages []string
 	for k, v := range paramNameValueMap {

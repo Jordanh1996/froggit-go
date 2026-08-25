@@ -937,11 +937,11 @@ func mapVoteToState(vote int) string {
 
 // GetMergeBase on Azure Repos
 func (client *AzureReposClient) GetMergeBase(ctx context.Context, _, repository, refBefore, refAfter string) (CommitInfo, error) {
-	if err := validateParametersNotBlank(map[string]string{
-		"repository": repository,
-		"refBefore":  refBefore,
-		"refAfter":   refAfter,
-	}); err != nil {
+	if err := errors.Join(
+		validateNotBlank("repository", repository),
+		validateNotBlank("refBefore", refBefore),
+		validateNotBlank("refAfter", refAfter),
+	); err != nil {
 		return CommitInfo{}, err
 	}
 

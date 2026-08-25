@@ -1253,12 +1253,12 @@ func (client *BitbucketCloudClient) downloadRepositoryViaGitClone(ctx context.Co
 
 // GetMergeBase on Bitbucket cloud
 func (client *BitbucketCloudClient) GetMergeBase(ctx context.Context, owner, repository, refBefore, refAfter string) (commitInfo CommitInfo, err error) {
-	if err = validateParametersNotBlank(map[string]string{
-		"owner":      owner,
-		"repository": repository,
-		"refBefore":  refBefore,
-		"refAfter":   refAfter,
-	}); err != nil {
+	if err = errors.Join(
+		validateNotBlank("owner", owner),
+		validateNotBlank("repository", repository),
+		validateNotBlank("refBefore", refBefore),
+		validateNotBlank("refAfter", refAfter),
+	); err != nil {
 		return
 	}
 
