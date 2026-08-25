@@ -943,16 +943,13 @@ func (client *AzureReposClient) GetMergeBase(ctx context.Context, _, repository,
 	}
 
 	// Azure rejects anything that is not a 40 character object id, on both sides of the comparison.
-	baseCommit, err := client.GetLatestCommit(ctx, "", repository, refBefore)
+	baseSha, err := client.resolveToCommitSha(ctx, repository, refBefore)
 	if err != nil {
 		return CommitInfo{}, err
 	}
-	otherCommit, err := client.GetLatestCommit(ctx, "", repository, refAfter)
+	otherSha, err := client.resolveToCommitSha(ctx, repository, refAfter)
 	if err != nil {
 		return CommitInfo{}, err
-	}
-	if baseCommit.Hash == "" || otherCommit.Hash == "" {
-		return CommitInfo{}, fmt.Errorf("could not resolve '%s' and '%s' to commits in <%s>", refBefore, refAfter, repository)
 	}
 
 	azureReposGitClient, err := client.buildAzureReposClient(ctx)
@@ -962,8 +959,8 @@ func (client *AzureReposClient) GetMergeBase(ctx context.Context, _, repository,
 	mergeBases, err := azureReposGitClient.GetMergeBases(ctx, git.GetMergeBasesArgs{
 		RepositoryNameOrId: &repository,
 		Project:            &client.vcsInfo.Project,
-		CommitId:           &baseCommit.Hash,
-		OtherCommitId:      &otherCommit.Hash,
+		CommitId:           &baseSha,
+		OtherCommitId:      &otherSha,
 	})
 	if err != nil {
 		return CommitInfo{}, err
@@ -972,4 +969,18 @@ func (client *AzureReposClient) GetMergeBase(ctx context.Context, _, repository,
 		return CommitInfo{}, fmt.Errorf("no merge base found for <%s> between %s and %s", repository, refBefore, refAfter)
 	}
 	return mapAzureReposCommitsToCommitInfo((*mergeBases)[0]), nil
+}
+
+func (client *AzureReposClient) resolveToCommitSha(ctx context.Context, repository, ref string) (string, error) {
+	if commitShaRegex.MatchString(ref) {
+		return ref, nil
+	}
+	commit, err := client.GetLatestCommit(ctx, "", repository, ref)
+	if err != nil {
+		return "", err
+	}
+	if commit.Hash == "" {
+		return "", fmt.Errorf("could not resolve '%s' to a commit in <%s>", ref, repository)
+	}
+	return commit.Hash, nil
 }

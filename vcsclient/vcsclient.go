@@ -10,7 +10,7 @@ import (
 	"github.com/jfrog/froggit-go/vcsutils"
 )
 
-// ErrMergeBaseUnsupported is returned by GetMergeBase for providers whose merge-base API is not yet implemented
+// ErrMergeBaseUnsupported is returned by GetMergeBase for providers that do not implement merge-base resolution
 var ErrMergeBaseUnsupported = errors.New("merge base resolution is not yet supported for this provider")
 
 // CommitStatus the status of the commit in the VCS

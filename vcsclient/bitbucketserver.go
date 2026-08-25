@@ -1038,5 +1038,8 @@ func (client *BitbucketServerClient) GetMergeBase(ctx context.Context, owner, re
 	if err = json.Unmarshal(body, &mergeBase); err != nil {
 		return
 	}
+	if mergeBase.ID == "" {
+		return CommitInfo{}, fmt.Errorf("no merge base found for <%s/%s> between %s and %s", owner, repository, refBefore, refAfter)
+	}
 	return client.mapBitbucketServerCommitToCommitInfo(mergeBase, owner, repository), nil
 }

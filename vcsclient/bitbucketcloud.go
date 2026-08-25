@@ -1300,5 +1300,8 @@ func (client *BitbucketCloudClient) GetMergeBase(ctx context.Context, owner, rep
 	if err = json.Unmarshal(body, &mergeBase); err != nil {
 		return
 	}
+	if mergeBase.Hash == "" {
+		return CommitInfo{}, fmt.Errorf("no merge base found for <%s/%s> between %s and %s", owner, repository, refBefore, refAfter)
+	}
 	return mapBitbucketCloudCommitToCommitInfo(mergeBase), nil
 }
