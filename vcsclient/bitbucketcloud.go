@@ -1200,29 +1200,42 @@ func (client *BitbucketCloudClient) downloadRepositoryViaGitClone(ctx context.Co
 		}
 	}()
 
-	args := []string{"clone", "--depth", "1"}
-	if branch != "" {
-		args = append(args, "--branch", branch)
+	// Fetching the ref rather than cloning it keeps a commit SHA usable here, which "clone --branch" rejects.
+	gitCommands := [][]string{
+		{"init", "--quiet", tempDir},
+		{"-C", tempDir, "remote", "add", "origin", cloneURL},
 	}
-	args = append(args, cloneURL, tempDir)
+	if branch != "" {
+		gitCommands = append(gitCommands,
+			[]string{"-C", tempDir, "fetch", "--depth", "1", "--no-tags", "origin", branch},
+			[]string{"-C", tempDir, "checkout", "--quiet", "FETCH_HEAD"})
+	} else {
+		gitCommands = append(gitCommands,
+			[]string{"-C", tempDir, "fetch", "--depth", "1", "--no-tags", "origin", "HEAD"},
+			[]string{"-C", tempDir, "checkout", "--quiet", "FETCH_HEAD"})
+	}
 
-	cmd := exec.CommandContext(ctx, "git", args...)
+	var gitEnv []string
 	if client.vcsInfo.Token != "" {
 		creds := base64.StdEncoding.EncodeToString([]byte("x-token-auth:" + client.vcsInfo.Token))
-		cmd.Env = append(os.Environ(),
+		gitEnv = append(os.Environ(),
 			"GIT_CONFIG_COUNT=1",
 			"GIT_CONFIG_KEY_0=http.extraHeader",
 			fmt.Sprintf("GIT_CONFIG_VALUE_0=Authorization: Basic %s", creds),
 		)
 	}
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	if err = cmd.Run(); err != nil {
-		stderrStr := stderr.String()
-		if client.vcsInfo.Token != "" {
-			stderrStr = strings.ReplaceAll(stderrStr, client.vcsInfo.Token, "***")
+	for _, args := range gitCommands {
+		cmd := exec.CommandContext(ctx, "git", args...)
+		cmd.Env = gitEnv
+		var stderr bytes.Buffer
+		cmd.Stderr = &stderr
+		if err = cmd.Run(); err != nil {
+			stderrStr := stderr.String()
+			if client.vcsInfo.Token != "" {
+				stderrStr = strings.ReplaceAll(stderrStr, client.vcsInfo.Token, "***")
+			}
+			return fmt.Errorf("git clone failed: %w, stderr: %s", err, stderrStr)
 		}
-		return fmt.Errorf("git clone failed: %w, stderr: %s", err, stderrStr)
 	}
 	client.logger.Info(repository, vcsutils.SuccessfulRepoDownload)
 
@@ -1241,7 +1254,50 @@ func (client *BitbucketCloudClient) downloadRepositoryViaGitClone(ctx context.Co
 	return vcsutils.CreateDotGitFolderWithRemote(localPath, "origin", repositoryInfo.CloneInfo.HTTP)
 }
 
-// GetMergeBase on Bitbucket Cloud
-func (client *BitbucketCloudClient) GetMergeBase(ctx context.Context, owner, repository, refBefore, refAfter string) (CommitInfo, error) {
-	return CommitInfo{}, ErrMergeBaseUnsupported
+// GetMergeBase on Bitbucket cloud
+func (client *BitbucketCloudClient) GetMergeBase(ctx context.Context, owner, repository, refBefore, refAfter string) (commitInfo CommitInfo, err error) {
+	if err = validateParametersNotBlank(map[string]string{
+		"owner":      owner,
+		"repository": repository,
+		"refBefore":  refBefore,
+		"refAfter":   refAfter,
+	}); err != nil {
+		return
+	}
+
+	apiBaseUrl := bitbucketCloudApiBaseUrl
+	if client.url != nil {
+		apiBaseUrl = strings.TrimSuffix(client.url.String(), "/")
+	}
+	requestUrl := fmt.Sprintf("%s/repositories/%s/%s/merge-base/%s..%s", apiBaseUrl, owner, repository,
+		url.PathEscape(refBefore), url.PathEscape(refAfter))
+
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, requestUrl, nil)
+	if err != nil {
+		return
+	}
+	client.setAuthenticationHeader(request)
+
+	response, err := (&http.Client{}).Do(request)
+	if err != nil {
+		return
+	}
+	defer func() {
+		err = errors.Join(err, response.Body.Close())
+	}()
+
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		return
+	}
+	if response.StatusCode != http.StatusOK {
+		return CommitInfo{}, fmt.Errorf("failed to get the merge base of '%s' and '%s' in <%s/%s>, status: %s, body: %s",
+			refBefore, refAfter, owner, repository, response.Status, body)
+	}
+
+	var mergeBase commitDetails
+	if err = json.Unmarshal(body, &mergeBase); err != nil {
+		return
+	}
+	return mapBitbucketCloudCommitToCommitInfo(mergeBase), nil
 }

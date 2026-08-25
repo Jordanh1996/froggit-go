@@ -1711,7 +1711,7 @@ func TestGithubClient_UploadSnapshotToDependencyGraph(t *testing.T) {
 func TestGetMergeBaseUnsupportedProviders(t *testing.T) {
 	ctx := context.Background()
 	for _, provider := range []vcsutils.VcsProvider{
-		vcsutils.BitbucketCloud, vcsutils.AzureRepos,
+		vcsutils.AzureRepos,
 	} {
 		t.Run(provider.String(), func(t *testing.T) {
 			client, err := NewClientBuilder(provider).Build()

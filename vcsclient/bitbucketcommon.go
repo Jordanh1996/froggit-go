@@ -10,6 +10,7 @@ import (
 const (
 	notSupportedOnBitbucket     = "currently not supported on Bitbucket"
 	bitbucketPrContentSizeLimit = 32768
+	bitbucketCloudApiBaseUrl    = "https://api.bitbucket.org/2.0"
 )
 
 var (

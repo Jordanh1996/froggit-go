@@ -910,3 +910,28 @@ func createBitbucketCloudHandler(t *testing.T, expectedURI string, response []by
 		assert.Equal(t, basicAuthHeader, r.Header.Get("Authorization"))
 	}
 }
+
+func TestBitbucketCloud_GetMergeBase(t *testing.T) {
+	ctx := context.Background()
+	response, err := os.ReadFile(filepath.Join("testdata", "bitbucketcloud", "merge_base.json"))
+	assert.NoError(t, err)
+
+	client, cleanUp := createServerAndClient(t, vcsutils.BitbucketCloud, true, response,
+		"/repositories/jfrog/repo-1/merge-base/master..feat%2Fslashed-name", createBitbucketCloudHandler)
+	defer cleanUp()
+
+	result, err := client.GetMergeBase(ctx, "jfrog", "repo-1", "master", "feat/slashed-name")
+
+	assert.NoError(t, err)
+	assert.Equal(t, "93983fd5cfad48aae91480c6db0dee1caa5dc4e1", result.Hash)
+	assert.Equal(t, "Albert Sundjaja", result.AuthorName)
+}
+
+func TestBitbucketCloud_GetMergeBaseBlankParams(t *testing.T) {
+	client, err := NewClientBuilder(vcsutils.BitbucketCloud).Build()
+	assert.NoError(t, err)
+
+	_, err = client.GetMergeBase(context.Background(), "jfrog", "", "master", "feature")
+
+	assert.ErrorContains(t, err, "required parameter 'repository' is missing")
+}
