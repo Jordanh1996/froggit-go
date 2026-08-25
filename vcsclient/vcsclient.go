@@ -184,6 +184,13 @@ type VcsClient interface {
 	// localPath  - Local file system path
 	DownloadRepository(ctx context.Context, owner, repository, branch, localPath string) error
 
+	// DownloadRepositoryByCommit downloads the repository at a specific commit to the given path
+	// owner      - User or organization
+	// repository - VCS repository name
+	// commitSha  - The commit to download
+	// localPath  - Local file system path
+	DownloadRepositoryByCommit(ctx context.Context, owner, repository, commitSha, localPath string) error
+
 	// CreatePullRequest Creates a pull request between 2 different branches in the same repository
 	// owner        - User or organization
 	// repository   - VCS repository name

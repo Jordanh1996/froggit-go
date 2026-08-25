@@ -1923,3 +1923,8 @@ func (client *GitHubClient) GetMergeBase(ctx context.Context, owner, repository,
 	})
 	return mergeBase, err
 }
+
+// DownloadRepositoryByCommit on GitHub
+func (client *GitHubClient) DownloadRepositoryByCommit(ctx context.Context, owner, repository, commitSha, localPath string) error {
+	return client.DownloadRepository(ctx, owner, repository, commitSha, localPath)
+}

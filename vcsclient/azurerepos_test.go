@@ -114,7 +114,7 @@ func TestAzureRepos_TestDownloadRepository(t *testing.T) {
 	repoFile, err := os.ReadFile(filepath.Join("testdata", "azurerepos", "hello_world.zip"))
 	assert.NoError(t, err)
 
-	downloadURL := fmt.Sprintf("/%s/_apis/git/repositories/%s/items/items?path=/&versionDescriptor[version]=%s&$format=zip",
+	downloadURL := fmt.Sprintf("/%s/_apis/git/repositories/%s/items/items?path=/&versionDescriptor[version]=%s&versionDescriptor[versionType]=branch&$format=zip",
 		"",
 		repo1,
 		branch1)
@@ -947,7 +947,7 @@ func createBadAzureReposClient(t *testing.T, response []byte) (VcsClient, func()
 		vcsutils.AzureRepos,
 		true,
 		response,
-		fmt.Sprintf("bad^endpoint/%s/_apis/git/repositories/%s/items/items?path=/&versionDescriptor[version]=%s&$format=zip",
+		fmt.Sprintf("bad^endpoint/%s/_apis/git/repositories/%s/items/items?path=/&versionDescriptor[version]=%s&versionDescriptor[versionType]=branch&$format=zip",
 			"",
 			repo1,
 			branch1),
@@ -1029,7 +1029,7 @@ func TestAzureRepos_DownloadRepositoryAtCommit(t *testing.T) {
 	assert.NoError(t, err)
 	defer func() { _ = os.RemoveAll(dir) }()
 
-	_ = client.DownloadRepository(ctx, "", repo1, commitSha, dir)
+	_ = client.DownloadRepositoryByCommit(ctx, "", repo1, commitSha, dir)
 
 	// Without versionType=commit Azure reads the sha as a branch name and answers 404.
 	assert.Contains(t, gotUri, "versionDescriptor[versionType]=commit")
@@ -1055,5 +1055,6 @@ func TestAzureRepos_DownloadRepositoryAtBranchKeepsBranchVersionType(t *testing.
 
 	_ = client.DownloadRepository(ctx, "", repo1, "feat/slashed-name", dir)
 
+	assert.Contains(t, gotUri, "versionDescriptor[versionType]=branch")
 	assert.NotContains(t, gotUri, "versionType=commit")
 }

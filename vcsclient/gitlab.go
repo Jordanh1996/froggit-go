@@ -1045,3 +1045,8 @@ func (client *GitLabClient) GetMergeBase(ctx context.Context, owner, repository,
 	}
 	return mapGitLabCommitToCommitInfo(commit), nil
 }
+
+// DownloadRepositoryByCommit on GitLab
+func (client *GitLabClient) DownloadRepositoryByCommit(ctx context.Context, owner, repository, commitSha, localPath string) error {
+	return client.DownloadRepository(ctx, owner, repository, commitSha, localPath)
+}

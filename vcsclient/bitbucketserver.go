@@ -1027,3 +1027,8 @@ func (client *BitbucketServerClient) GetMergeBase(ctx context.Context, owner, re
 	}
 	return client.mapBitbucketServerCommitToCommitInfo(mergeBase, owner, repository), nil
 }
+
+// DownloadRepositoryByCommit on Bitbucket server
+func (client *BitbucketServerClient) DownloadRepositoryByCommit(ctx context.Context, owner, repository, commitSha, localPath string) error {
+	return client.DownloadRepository(ctx, owner, repository, commitSha, localPath)
+}

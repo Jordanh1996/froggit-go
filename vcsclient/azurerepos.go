@@ -120,7 +120,16 @@ func (client *AzureReposClient) ListBranches(ctx context.Context, _, repository 
 }
 
 // DownloadRepository on Azure Repos
-func (client *AzureReposClient) DownloadRepository(ctx context.Context, owner, repository, branch, localPath string) (err error) {
+func (client *AzureReposClient) DownloadRepository(ctx context.Context, owner, repository, branch, localPath string) error {
+	return client.downloadRepositoryAtVersion(ctx, owner, repository, branch, string(git.GitVersionTypeValues.Branch), localPath)
+}
+
+// DownloadRepositoryByCommit on Azure Repos
+func (client *AzureReposClient) DownloadRepositoryByCommit(ctx context.Context, owner, repository, commitSha, localPath string) error {
+	return client.downloadRepositoryAtVersion(ctx, owner, repository, commitSha, string(git.GitVersionTypeValues.Commit), localPath)
+}
+
+func (client *AzureReposClient) downloadRepositoryAtVersion(ctx context.Context, owner, repository, version, versionType, localPath string) (err error) {
 	wd, err := os.Getwd()
 	if err != nil {
 		return
@@ -132,7 +141,7 @@ func (client *AzureReposClient) DownloadRepository(ctx context.Context, owner, r
 	defer func() {
 		err = errors.Join(err, os.Chdir(wd))
 	}()
-	res, err := client.sendDownloadRepoRequest(ctx, repository, branch)
+	res, err := client.sendDownloadRepoRequest(ctx, repository, version, versionType)
 	defer func() {
 		if res.Body != nil {
 			err = errors.Join(err, res.Body.Close())
@@ -162,16 +171,13 @@ func (client *AzureReposClient) DownloadRepository(ctx context.Context, owner, r
 		httpsCloneUrl)
 }
 
-func (client *AzureReposClient) sendDownloadRepoRequest(ctx context.Context, repository string, branch string) (res *http.Response, err error) {
-	downloadRepoUrl := fmt.Sprintf("%s/%s/_apis/git/repositories/%s/items/items?path=/&versionDescriptor[version]=%s&$format=zip",
+func (client *AzureReposClient) sendDownloadRepoRequest(ctx context.Context, repository, version, versionType string) (res *http.Response, err error) {
+	downloadRepoUrl := fmt.Sprintf("%s/%s/_apis/git/repositories/%s/items/items?path=/&versionDescriptor[version]=%s&versionDescriptor[versionType]=%s&$format=zip",
 		client.connectionDetails.BaseUrl,
 		client.vcsInfo.Project,
 		repository,
-		url.QueryEscape(branch))
-	// Azure defaults the version type to a branch name, and answers 404 for a commit id unless told otherwise.
-	if commitShaRegex.MatchString(branch) {
-		downloadRepoUrl += "&versionDescriptor[versionType]=commit"
-	}
+		url.QueryEscape(version),
+		versionType)
 	client.logger.Debug("Download url:", downloadRepoUrl)
 	headers := map[string]string{
 		"Authorization":  client.connectionDetails.AuthorizationString,
