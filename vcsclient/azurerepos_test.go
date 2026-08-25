@@ -952,3 +952,59 @@ func createBadAzureReposClient(t *testing.T, response []byte) (VcsClient, func()
 		createAzureReposHandler)
 	return client, cleanUp
 }
+
+func TestAzureRepos_GetMergeBase(t *testing.T) {
+	ctx := context.Background()
+	commitsResponse, err := os.ReadFile(filepath.Join("testdata", "azurerepos", "commits.json"))
+	assert.NoError(t, err)
+
+	client, cleanUp := createServerAndClient(t, vcsutils.AzureRepos, true, nil, "mergebases",
+		createAzureReposMergeBaseHandler(t, commitsResponse))
+	defer cleanUp()
+
+	result, err := client.GetMergeBase(ctx, "", repo1, "master", "feat/slashed-name")
+
+	assert.NoError(t, err)
+	assert.Equal(t, "86d6919952702f9ab03bc95b45687f145a663de0", result.Hash)
+}
+
+func TestAzureRepos_GetMergeBaseBlankParams(t *testing.T) {
+	client, err := NewClientBuilder(vcsutils.AzureRepos).Build()
+	assert.NoError(t, err)
+
+	_, err = client.GetMergeBase(context.Background(), "", "", "master", "feature")
+
+	assert.ErrorContains(t, err, "required parameter 'repository' is missing")
+}
+
+func createAzureReposMergeBaseHandler(t *testing.T, commitsResponse []byte) createHandlerFunc {
+	mergeBase := `{"count":1,"value":[{"commitId":"86d6919952702f9ab03bc95b45687f145a663de0","author":{"name":"Test User","email":"test@myserver.com","date":"2022-11-07T10:36:41Z"},"committer":{"name":"Test User","email":"test@myserver.com","date":"2022-11-07T10:36:41Z"},"comment":"merge base"}]}`
+	return func(t *testing.T, _ string, _ []byte, _ int) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			switch r.RequestURI {
+			case "/_apis":
+				jsonVal, err := os.ReadFile(filepath.Join("./", "testdata", "azurerepos", "resourcesResponse.json"))
+				assert.NoError(t, err)
+				_, err = w.Write(jsonVal)
+				assert.NoError(t, err)
+				return
+			case "/_apis/ResourceAreas":
+				_, err := w.Write([]byte(`{"value": [],"count": 0}`))
+				assert.NoError(t, err)
+				return
+			}
+			if strings.Contains(r.RequestURI, "mergebases") {
+				// Azure rejects anything that is not a 40-hex object id, on BOTH sides.
+				assert.Contains(t, r.RequestURI, "/commits/86d6919952702f9ab03bc95b45687f145a663de0/mergebases")
+				assert.Contains(t, r.RequestURI, "otherCommitId=86d6919952702f9ab03bc95b45687f145a663de0")
+				assert.NotContains(t, r.RequestURI, "master")
+				assert.NotContains(t, r.RequestURI, "slashed")
+				_, err := w.Write([]byte(mergeBase))
+				assert.NoError(t, err)
+				return
+			}
+			_, err := w.Write(commitsResponse)
+			assert.NoError(t, err)
+		}
+	}
+}

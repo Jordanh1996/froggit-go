@@ -926,6 +926,43 @@ func mapVoteToState(vote int) string {
 }
 
 // GetMergeBase on Azure Repos
-func (client *AzureReposClient) GetMergeBase(ctx context.Context, owner, repository, refBefore, refAfter string) (CommitInfo, error) {
-	return CommitInfo{}, ErrMergeBaseUnsupported
+func (client *AzureReposClient) GetMergeBase(ctx context.Context, _, repository, refBefore, refAfter string) (CommitInfo, error) {
+	if err := validateParametersNotBlank(map[string]string{
+		"repository": repository,
+		"refBefore":  refBefore,
+		"refAfter":   refAfter,
+	}); err != nil {
+		return CommitInfo{}, err
+	}
+
+	// Azure rejects anything that is not a 40 character object id, on both sides of the comparison.
+	baseCommit, err := client.GetLatestCommit(ctx, "", repository, refBefore)
+	if err != nil {
+		return CommitInfo{}, err
+	}
+	otherCommit, err := client.GetLatestCommit(ctx, "", repository, refAfter)
+	if err != nil {
+		return CommitInfo{}, err
+	}
+	if baseCommit.Hash == "" || otherCommit.Hash == "" {
+		return CommitInfo{}, fmt.Errorf("could not resolve '%s' and '%s' to commits in <%s>", refBefore, refAfter, repository)
+	}
+
+	azureReposGitClient, err := client.buildAzureReposClient(ctx)
+	if err != nil {
+		return CommitInfo{}, err
+	}
+	mergeBases, err := azureReposGitClient.GetMergeBases(ctx, git.GetMergeBasesArgs{
+		RepositoryNameOrId: &repository,
+		Project:            &client.vcsInfo.Project,
+		CommitId:           &baseCommit.Hash,
+		OtherCommitId:      &otherCommit.Hash,
+	})
+	if err != nil {
+		return CommitInfo{}, err
+	}
+	if mergeBases == nil || len(*mergeBases) == 0 {
+		return CommitInfo{}, fmt.Errorf("no merge base found for <%s> between %s and %s", repository, refBefore, refAfter)
+	}
+	return mapAzureReposCommitsToCommitInfo((*mergeBases)[0]), nil
 }
