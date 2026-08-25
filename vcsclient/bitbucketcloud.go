@@ -1201,18 +1201,15 @@ func (client *BitbucketCloudClient) downloadRepositoryViaGitClone(ctx context.Co
 	}()
 
 	// Fetching the ref rather than cloning it keeps a commit SHA usable here, which "clone --branch" rejects.
+	ref := branch
+	if ref == "" {
+		ref = "HEAD"
+	}
 	gitCommands := [][]string{
 		{"init", "--quiet", tempDir},
 		{"-C", tempDir, "remote", "add", "origin", cloneURL},
-	}
-	if branch != "" {
-		gitCommands = append(gitCommands,
-			[]string{"-C", tempDir, "fetch", "--depth", "1", "--no-tags", "origin", branch},
-			[]string{"-C", tempDir, "checkout", "--quiet", "FETCH_HEAD"})
-	} else {
-		gitCommands = append(gitCommands,
-			[]string{"-C", tempDir, "fetch", "--depth", "1", "--no-tags", "origin", "HEAD"},
-			[]string{"-C", tempDir, "checkout", "--quiet", "FETCH_HEAD"})
+		{"-C", tempDir, "fetch", "--depth", "1", "--no-tags", "origin", ref},
+		{"-C", tempDir, "checkout", "--quiet", "FETCH_HEAD"},
 	}
 
 	var gitEnv []string
@@ -1234,7 +1231,7 @@ func (client *BitbucketCloudClient) downloadRepositoryViaGitClone(ctx context.Co
 			if client.vcsInfo.Token != "" {
 				stderrStr = strings.ReplaceAll(stderrStr, client.vcsInfo.Token, "***")
 			}
-			return fmt.Errorf("git clone failed: %w, stderr: %s", err, stderrStr)
+			return fmt.Errorf("git %s failed: %w, stderr: %s", args[0], err, stderrStr)
 		}
 	}
 	client.logger.Info(repository, vcsutils.SuccessfulRepoDownload)
@@ -1272,13 +1269,17 @@ func (client *BitbucketCloudClient) GetMergeBase(ctx context.Context, owner, rep
 	requestUrl := fmt.Sprintf("%s/repositories/%s/%s/merge-base/%s..%s", apiBaseUrl, owner, repository,
 		url.PathEscape(refBefore), url.PathEscape(refAfter))
 
+	bitbucketClient, err := client.buildBitbucketCloudClient(ctx)
+	if err != nil {
+		return
+	}
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, requestUrl, nil)
 	if err != nil {
 		return
 	}
 	client.setAuthenticationHeader(request)
 
-	response, err := (&http.Client{}).Do(request)
+	response, err := bitbucketClient.HttpClient.Do(request)
 	if err != nil {
 		return
 	}

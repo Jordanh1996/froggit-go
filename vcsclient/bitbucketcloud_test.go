@@ -181,7 +181,7 @@ func TestBitbucketCloud_DownloadRepository_BearerToken_RoutesToGitClone(t *testi
 
 	err = client.DownloadRepository(ctx, owner, repo1, branch1, dir)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "git clone failed", "error should originate from the git clone path, not the archive download path")
+	assert.Regexp(t, `^git \w+ failed`, err.Error(), "error should originate from the git path, not the archive download path")
 	assert.False(t, archiveEndpointCalled, "archive HTTP endpoint must not be called when no username is set")
 }
 
