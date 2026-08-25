@@ -1896,12 +1896,7 @@ func convertToGitHubSnapshot(snapshot *SbomSnapshot) (*github.DependencyGraphSna
 
 // GetMergeBase on GitHub
 func (client *GitHubClient) GetMergeBase(ctx context.Context, owner, repository, refBefore, refAfter string) (CommitInfo, error) {
-	if err := validateParametersNotBlank(map[string]string{
-		"owner":      owner,
-		"repository": repository,
-		"refBefore":  refBefore,
-		"refAfter":   refAfter,
-	}); err != nil {
+	if err := validateMergeBaseParameters(owner, repository, refBefore, refAfter); err != nil {
 		return CommitInfo{}, err
 	}
 
@@ -1916,7 +1911,7 @@ func (client *GitHubClient) GetMergeBase(ctx context.Context, owner, repository,
 			return ghResponse, err
 		}
 		if comparison.MergeBaseCommit == nil {
-			return ghResponse, fmt.Errorf("no merge base found for <%s/%s> between %s and %s", owner, repository, refBefore, refAfter)
+			return ghResponse, mergeBaseNotFoundError(owner, repository, refBefore, refAfter)
 		}
 		mergeBase = mapGitHubCommitToCommitInfo(comparison.MergeBaseCommit)
 		return ghResponse, nil

@@ -990,12 +990,7 @@ func getSourceRepositoryOwner(pullRequest bitbucketv1.PullRequest) (string, erro
 
 // GetMergeBase on Bitbucket server
 func (client *BitbucketServerClient) GetMergeBase(ctx context.Context, owner, repository, refBefore, refAfter string) (commitInfo CommitInfo, err error) {
-	if err = validateParametersNotBlank(map[string]string{
-		"owner":      owner,
-		"repository": repository,
-		"refBefore":  refBefore,
-		"refAfter":   refAfter,
-	}); err != nil {
+	if err = validateMergeBaseParameters(owner, repository, refBefore, refAfter); err != nil {
 		return
 	}
 
@@ -1013,25 +1008,9 @@ func (client *BitbucketServerClient) GetMergeBase(ctx context.Context, owner, re
 	requestUrl := fmt.Sprintf("%s/api/1.0/projects/%s/repos/%s/commits/%s/merge-base?otherCommitId=%s",
 		restEndpoint, owner, repository, baseCommit.Hash, url.QueryEscape(refAfter))
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestUrl, nil)
+	body, err := getBitbucketJson(ctx, client.buildHTTPClient(ctx), requestUrl, nil)
 	if err != nil {
 		return
-	}
-	response, err := client.buildHTTPClient(ctx).Do(req)
-	if err != nil {
-		return
-	}
-	defer func() {
-		err = errors.Join(err, response.Body.Close())
-	}()
-
-	body, err := io.ReadAll(response.Body)
-	if err != nil {
-		return
-	}
-	if response.StatusCode >= 300 {
-		return CommitInfo{}, fmt.Errorf("failed to get the merge base of '%s' and '%s' in <%s/%s>, status: %s, body: %s",
-			refBefore, refAfter, owner, repository, response.Status, body)
 	}
 
 	var mergeBase bitbucketv1.Commit
@@ -1039,7 +1018,7 @@ func (client *BitbucketServerClient) GetMergeBase(ctx context.Context, owner, re
 		return
 	}
 	if mergeBase.ID == "" {
-		return CommitInfo{}, fmt.Errorf("no merge base found for <%s/%s> between %s and %s", owner, repository, refBefore, refAfter)
+		return CommitInfo{}, mergeBaseNotFoundError(owner, repository, refBefore, refAfter)
 	}
 	return client.mapBitbucketServerCommitToCommitInfo(mergeBase, owner, repository), nil
 }
