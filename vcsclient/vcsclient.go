@@ -597,15 +597,6 @@ type FileToCommit struct {
 	Content string
 }
 
-func validateMergeBaseParameters(owner, repository, refBefore, refAfter string) error {
-	return validateParametersNotBlank(map[string]string{
-		"owner":      owner,
-		"repository": repository,
-		"refBefore":  refBefore,
-		"refAfter":   refAfter,
-	})
-}
-
 func mergeBaseNotFoundError(owner, repository, refBefore, refAfter string) error {
 	return fmt.Errorf("no merge base found for <%s/%s> between %s and %s", owner, repository, refBefore, refAfter)
 }

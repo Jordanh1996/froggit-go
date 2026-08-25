@@ -1025,7 +1025,12 @@ func mapGitLabPullRequestState(state *vcsutils.PullRequestState) *string {
 
 // GetMergeBase on GitLab
 func (client *GitLabClient) GetMergeBase(ctx context.Context, owner, repository, refBefore, refAfter string) (CommitInfo, error) {
-	if err := validateMergeBaseParameters(owner, repository, refBefore, refAfter); err != nil {
+	if err := validateParametersNotBlank(map[string]string{
+		"owner":      owner,
+		"repository": repository,
+		"refBefore":  refBefore,
+		"refAfter":   refAfter,
+	}); err != nil {
 		return CommitInfo{}, err
 	}
 

@@ -990,7 +990,12 @@ func getSourceRepositoryOwner(pullRequest bitbucketv1.PullRequest) (string, erro
 
 // GetMergeBase on Bitbucket server
 func (client *BitbucketServerClient) GetMergeBase(ctx context.Context, owner, repository, refBefore, refAfter string) (commitInfo CommitInfo, err error) {
-	if err = validateMergeBaseParameters(owner, repository, refBefore, refAfter); err != nil {
+	if err = validateParametersNotBlank(map[string]string{
+		"owner":      owner,
+		"repository": repository,
+		"refBefore":  refBefore,
+		"refAfter":   refAfter,
+	}); err != nil {
 		return
 	}
 
