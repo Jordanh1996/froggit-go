@@ -961,7 +961,7 @@ func TestAzureRepos_GetMergeBase(t *testing.T) {
 	assert.NoError(t, err)
 
 	client, cleanUp := createServerAndClient(t, vcsutils.AzureRepos, true, nil, "mergebases",
-		createAzureReposMergeBaseHandler(t, commitsResponse))
+		createAzureReposMergeBaseHandler(commitsResponse))
 	defer cleanUp()
 
 	result, err := client.GetMergeBase(ctx, "", repo1, "master", "feat/slashed-name")
@@ -984,7 +984,7 @@ const (
 	featureSha = "11a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4"
 )
 
-func createAzureReposMergeBaseHandler(t *testing.T, commitsResponse []byte) createHandlerFunc {
+func createAzureReposMergeBaseHandler(commitsResponse []byte) createHandlerFunc {
 	mergeBase := `{"count":1,"value":[{"commitId":"86d6919952702f9ab03bc95b45687f145a663de0","author":{"name":"Test User","email":"test@myserver.com","date":"2022-11-07T10:36:41Z"},"committer":{"name":"Test User","email":"test@myserver.com","date":"2022-11-07T10:36:41Z"},"comment":"merge base"}]}`
 	return func(t *testing.T, _ string, _ []byte, _ int) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {

@@ -1055,7 +1055,7 @@ func TestBitbucketServer_GetMergeBase(t *testing.T) {
 	assert.NoError(t, err)
 
 	client, cleanUp := createServerAndClient(t, vcsutils.BitbucketServer, false, mergeBaseResponse, "",
-		createBitbucketServerMergeBaseHandler(t, commitsResponse))
+		createBitbucketServerMergeBaseHandler(commitsResponse))
 	defer cleanUp()
 
 	result, err := client.GetMergeBase(ctx, owner, repo1, "master", "feature/slashed-name")
@@ -1074,7 +1074,7 @@ func TestBitbucketServer_GetMergeBaseBlankParams(t *testing.T) {
 	assert.ErrorContains(t, err, "required parameter 'repository' is missing")
 }
 
-func createBitbucketServerMergeBaseHandler(t *testing.T, commitsResponse []byte) createHandlerFunc {
+func createBitbucketServerMergeBaseHandler(commitsResponse []byte) createHandlerFunc {
 	return func(t *testing.T, _ string, response []byte, expectedStatusCode int) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			if strings.Contains(r.RequestURI, "/merge-base") {
