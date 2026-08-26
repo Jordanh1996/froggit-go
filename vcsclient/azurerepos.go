@@ -140,7 +140,7 @@ func (client *AzureReposClient) downloadRepositoryAtVersion(ctx context.Context,
 	}()
 	res, err := client.sendDownloadRepoRequest(ctx, repository, version, versionType)
 	defer func() {
-		if res.Body != nil {
+		if res != nil && res.Body != nil {
 			err = errors.Join(err, res.Body.Close())
 		}
 	}()

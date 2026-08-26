@@ -291,8 +291,8 @@ type VcsClient interface {
 	// GetMergeBase returns the best common ancestor of two VCS references
 	// owner      - User or organization
 	// repository - VCS repository name
-	// refBefore  - The first reference (commit SHA, branch name or tag)
-	// refAfter   - The second reference (commit SHA, branch name or tag)
+	// refBefore  - The first branch name
+	// refAfter   - The second branch name
 	GetMergeBase(ctx context.Context, owner, repository, refBefore, refAfter string) (CommitInfo, error)
 
 	// GetCommits Gets the most recent commit of a branch
@@ -618,7 +618,7 @@ func validateNotBlank(name, value string) error {
 func validateParametersNotBlank(paramNameValueMap map[string]string) error {
 	var errorMessages []string
 	for k, v := range paramNameValueMap {
-		if strings.TrimSpace(v) == "" {
+		if validateNotBlank(k, v) != nil {
 			errorMessages = append(errorMessages, fmt.Sprintf("required parameter '%s' is missing", k))
 		}
 	}
