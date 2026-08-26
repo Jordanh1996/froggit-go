@@ -288,8 +288,7 @@ type VcsClient interface {
 	// branch     - The name of the branch
 	GetLatestCommit(ctx context.Context, owner, repository, branch string) (CommitInfo, error)
 
-	// GetMergeBase returns the best common ancestor of two branches, the commit they diverged from.
-	// Branch names only: Azure Repos resolves them through an API that accepts no other reference type.
+	// GetMergeBase returns the best common ancestor of two branches, the commit they diverged from
 	// owner      - User or organization
 	// repository - VCS repository name
 	// refBefore  - Branch to compare from, typically the target branch of a pull request
