@@ -181,7 +181,34 @@ func TestBitbucketCloud_DownloadRepository_BearerToken_RoutesToGitClone(t *testi
 
 	err = client.DownloadRepository(ctx, owner, repo1, branch1, dir)
 	assert.Error(t, err)
-	assert.Regexp(t, `^git \w+ failed`, err.Error(), "error should originate from the git path, not the archive download path")
+	assert.Contains(t, err.Error(), "git clone failed", "a branch must still be downloaded with git clone")
+	assert.False(t, archiveEndpointCalled, "archive HTTP endpoint must not be called when no username is set")
+}
+
+func TestBitbucketCloud_DownloadRepositoryByCommit_BearerToken_RoutesToGitFetch(t *testing.T) {
+	archiveEndpointCalled := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		archiveEndpointCalled = true
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client, err := NewClientBuilder(vcsutils.BitbucketCloud).
+		ApiEndpoint(server.URL).
+		Token(token).
+		Build()
+	assert.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	dir, err := os.MkdirTemp("", "")
+	assert.NoError(t, err)
+	defer func() { _ = os.RemoveAll(dir) }()
+
+	err = client.DownloadRepositoryByCommit(ctx, owner, repo1, "d1c1e8e0e0b5bd1e8e0e0b5bd1e8e0e0b5bd1e8e", dir)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "git init failed", "a commit sha must be downloaded with git fetch, which starts by initializing a repository")
 	assert.False(t, archiveEndpointCalled, "archive HTTP endpoint must not be called when no username is set")
 }
 

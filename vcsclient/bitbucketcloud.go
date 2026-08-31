@@ -1188,8 +1188,30 @@ func splitBitbucketCloudRepoName(name string) (string, string) {
 // Clones the repository using git with x-token-auth authentication.
 // This is a workaround for BCLOUD-23783: Bitbucket Cloud archive downloads do not support Bearer
 // token auth. Remove this fallback once Atlassian resolves BCLOUD-23783.
-func (client *BitbucketCloudClient) downloadRepositoryViaGitClone(ctx context.Context, owner, repository, branch, localPath string) (err error) {
-	client.logger.Debug("Using git clone fallback (BCLOUD-23783 workaround: Bearer tokens not supported for archive downloads)")
+func (client *BitbucketCloudClient) downloadRepositoryViaGitClone(ctx context.Context, owner, repository, branch, localPath string) error {
+	args := []string{"clone", "--depth", "1"}
+	if branch != "" {
+		args = append(args, "--branch", branch)
+	}
+	return client.downloadRepositoryViaGit(ctx, owner, repository, localPath, func(cloneURL, tempDir string) [][]string {
+		return [][]string{append(args, cloneURL, tempDir)}
+	})
+}
+
+// A commit SHA is not a valid argument for "clone --branch", so it is fetched into an initialized repository instead.
+func (client *BitbucketCloudClient) downloadRepositoryCommitViaGitFetch(ctx context.Context, owner, repository, commitSha, localPath string) error {
+	return client.downloadRepositoryViaGit(ctx, owner, repository, localPath, func(cloneURL, tempDir string) [][]string {
+		return [][]string{
+			{"init", "--quiet", tempDir},
+			{"-C", tempDir, "remote", "add", "origin", cloneURL},
+			{"-C", tempDir, "fetch", "--depth", "1", "--no-tags", "origin", commitSha},
+			{"-C", tempDir, "checkout", "--quiet", "FETCH_HEAD"},
+		}
+	})
+}
+
+func (client *BitbucketCloudClient) downloadRepositoryViaGit(ctx context.Context, owner, repository, localPath string, buildGitCommands func(cloneURL, tempDir string) [][]string) (err error) {
+	client.logger.Debug("Using git fallback (BCLOUD-23783 workaround: Bearer tokens not supported for archive downloads)")
 	cloneURL := fmt.Sprintf("https://bitbucket.org/%s/%s.git", owner, repository)
 
 	tempDir, err := os.MkdirTemp("", "bitbucket-clone-*")
@@ -1202,18 +1224,6 @@ func (client *BitbucketCloudClient) downloadRepositoryViaGitClone(ctx context.Co
 		}
 	}()
 
-	// Fetching the ref rather than cloning it keeps a commit SHA usable here, which "clone --branch" rejects.
-	ref := branch
-	if ref == "" {
-		ref = "HEAD"
-	}
-	gitCommands := [][]string{
-		{"init", "--quiet", tempDir},
-		{"-C", tempDir, "remote", "add", "origin", cloneURL},
-		{"-C", tempDir, "fetch", "--depth", "1", "--no-tags", "origin", ref},
-		{"-C", tempDir, "checkout", "--quiet", "FETCH_HEAD"},
-	}
-
 	var gitEnv []string
 	if client.vcsInfo.Token != "" {
 		creds := base64.StdEncoding.EncodeToString([]byte("x-token-auth:" + client.vcsInfo.Token))
@@ -1223,7 +1233,7 @@ func (client *BitbucketCloudClient) downloadRepositoryViaGitClone(ctx context.Co
 			fmt.Sprintf("GIT_CONFIG_VALUE_0=Authorization: Basic %s", creds),
 		)
 	}
-	for _, args := range gitCommands {
+	for _, args := range buildGitCommands(cloneURL, tempDir) {
 		cmd := exec.CommandContext(ctx, "git", args...)
 		cmd.Env = gitEnv
 		var stderr bytes.Buffer
@@ -1292,5 +1302,8 @@ func (client *BitbucketCloudClient) GetMergeBase(ctx context.Context, owner, rep
 
 // DownloadRepositoryByCommit on Bitbucket cloud
 func (client *BitbucketCloudClient) DownloadRepositoryByCommit(ctx context.Context, owner, repository, commitSha, localPath string) error {
+	if client.vcsInfo.Username == "" && client.vcsInfo.Token != "" {
+		return client.downloadRepositoryCommitViaGitFetch(ctx, owner, repository, commitSha, localPath)
+	}
 	return client.DownloadRepository(ctx, owner, repository, commitSha, localPath)
 }
